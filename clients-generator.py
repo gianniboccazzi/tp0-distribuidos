@@ -1,44 +1,44 @@
-import sys
+import sys, yaml
 
 def generate_compose(num_clients):
-    compose_content = """name: tp0
-services:
-  server:
-    container_name: server
-    image: server:latest
-    entrypoint: python3 /main.py
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
-    networks:
-      - testing_net
-"""
+    compose = {
+        "name": "tp0",
+        "services": {
+            "server": {
+                "container_name": "server",
+                "image": "server:latest",
+                "entrypoint": "python3 /main.py",
+                "environment": [
+                    "PYTHONUNBUFFERED=1",
+                    "LOGGING_LEVEL=DEBUG"
+                ],
+                "networks": ["testing_net"]
+            }
+        },
+        "networks": {
+            "testing_net": {
+                "ipam": {
+                    "driver": "default",
+                    "config": [{"subnet": "172.25.125.0/24"}]
+                }
+            }
+        }
+    }
 
     for i in range(1, num_clients + 1):
-        compose_content += f"""
-  client{i}:
-    container_name: client{i}
-    image: client:latest
-    entrypoint: /client
-    environment:
-      - CLI_ID={i}
-      - CLI_LOG_LEVEL=DEBUG
-    networks:
-      - testing_net
-    depends_on:
-      - server
-"""
+        compose["services"][f"client{i}"] = {
+            "container_name": f"client{i}",
+            "image": "client:latest",
+            "entrypoint": "/client",
+            "environment": [
+                f"CLI_ID={i}",
+                "CLI_LOG_LEVEL=DEBUG"
+            ],
+            "networks": ["testing_net"],
+            "depends_on": ["server"]
+        }
 
-    compose_content += """
-networks:
-  testing_net:
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.25.125.0/24
-"""
-
-    return compose_content
+    return yaml.dump(compose, sort_keys=False, default_flow_style=False)
 
 
 def parse_arguments():

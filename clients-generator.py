@@ -12,7 +12,8 @@ def generate_compose(num_clients):
                     "PYTHONUNBUFFERED=1",
                     "LOGGING_LEVEL=DEBUG"
                 ],
-                "networks": ["testing_net"]
+                "networks": ["testing_net"],
+                "volumes": ["./server/config.ini:./server_config.ini"]
             }
         },
         "networks": {
@@ -22,10 +23,7 @@ def generate_compose(num_clients):
                     "config": [{"subnet": "172.25.125.0/24"}]
                 }
             }
-        },
-        "volumes": [
-            "./server/config.ini:./server_config.ini"
-        ]
+        }
     }
 
     for i in range(1, num_clients + 1):

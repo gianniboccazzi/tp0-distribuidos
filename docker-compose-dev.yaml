@@ -10,7 +10,9 @@ services:
     networks:
     - testing_net
     volumes:
-    - ./server/config.ini:/config/server_config.ini
+    - type: bind
+      source: ./server/config.ini
+      target: /config/server_config.ini
   client1:
     container_name: client1
     image: client:latest
@@ -21,7 +23,9 @@ services:
     networks:
     - testing_net
     volumes:
-    - ./client/config.yaml:/config/client_config.yaml
+    - type: bind
+      source: ./client/config.yaml
+      target: /config/client_config.yaml
     depends_on:
     - server
 networks:

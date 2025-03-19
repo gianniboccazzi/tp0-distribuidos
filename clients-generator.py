@@ -53,7 +53,7 @@ def parse_arguments():
 
 def main():
     num_clients, output_file = parse_arguments()
-    if num_clients < 1:
+    if num_clients < 0:
         print("Invalid number of clients")
         sys.exit(1)
     

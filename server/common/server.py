@@ -70,3 +70,4 @@ class Server:
         Function that is called when a SIGTERM signal is received
         """
         self.active = False
+        self._server_socket.close()

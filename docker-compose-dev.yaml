@@ -18,9 +18,9 @@ services:
     entrypoint: /client
     environment:
     - CLI_ID=1
-    - NOMBRE=Nombre 1
-    - APELLIDO=Apellido1
-    - DNI=12345671
+    - NOMBRE=Nombre_1
+    - APELLIDO=Apellido_1
+    - DOCUMENTO=12345671
     - NACIMIENTO=1990-01-01
     - NUMERO=1231
     networks:

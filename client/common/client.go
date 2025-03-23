@@ -53,6 +53,7 @@ func (c *Client) createClientSocket() error {
 			c.config.ID,
 			err,
 		)
+		return err
 	}
 	c.conn = conn
 	return nil
@@ -107,7 +108,11 @@ func (c *Client) handleSignal() {
 
 
 func (c *Client) SendBet(bet *domain.Bet) {
-	c.createClientSocket() 
+	err := c.createClientSocket() 
+	if err != nil {
+		log.Criticalf("action: conexion_socket | result: fail | dni: %d | error: %v", bet.ID, err)
+		return
+	}
 	message := communication.PrepareBetMessage(*bet)
 	bytesMessage := []byte(message)
 	bytesSent := 0

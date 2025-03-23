@@ -194,7 +194,7 @@ func (c *Client) SendBets() {
 					EOF = true
 					break
 				}
-				log.Criticalf("action: read_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+				log.Criticalf("action: read_bet | result: fail | client_id: %s | error: %v", c.config.ID, err)
 				return
 			}
 			betString := communication.PrepareBetToBatchMessage(*bet)

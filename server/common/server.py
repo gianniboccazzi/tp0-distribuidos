@@ -3,7 +3,7 @@ import socket
 import logging
 
 from .utils import store_bets
-from communication.protocol import parse_message
+from communication.protocol import parse_batch, parse_message
 
 
 class Server:
@@ -19,7 +19,7 @@ class Server:
         while self.active:
             client_sock = self.__accept_new_connection()
             if client_sock:
-                self.__handle_client_connection(client_sock)
+                self.__handle_client_connection_batches(client_sock)
 
     def __handle_client_connection(self, client_sock: socket.socket):
         """
@@ -46,6 +46,29 @@ class Server:
             store_bets([bet])    
         except (socket.timeout, ConnectionError, ValueError, OSError) as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
+
+    def __handle_client_connection_batches(self, client_sock: socket.socket):
+        eof = False
+        client_sock.settimeout(5)
+        bets = []
+        while not eof:
+            try:
+                buffer = b""
+                while b"|" not in buffer:
+                    chunk = client_sock.recv(3)
+                    if not chunk:
+                        raise ConnectionError("Client disconnected before sending message")
+                    buffer += chunk
+                message_length_str, remaining_data = buffer.split(b"|", 1)
+                message_length = int(message_length_str.decode())
+                remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
+                bets, eof = parse_batch(remaining_data)
+                self.__send_ack(client_sock)
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+                store_bets(bets)
+            except (socket.timeout, ConnectionError, ValueError, OSError) as e:
+                logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
+                eof = True
 
 
     def __accept_new_connection(self):

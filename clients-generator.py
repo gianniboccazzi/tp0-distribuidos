@@ -50,6 +50,11 @@ def generate_compose(num_clients):
                     "type": "bind",
                     "source": "./client/config.yaml",
                     "target": "/config/client_config.yaml"
+                },
+                {
+                    "type": "bind",
+                    "source": "./.data/dataset",
+                    "target": "/.data"
                 }
                 ],
             "depends_on": ["server"]

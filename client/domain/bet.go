@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -23,15 +24,15 @@ func LoadBet() (*Bet, error) {
 	betNumber := os.Getenv("NUMERO")
 	agencyParsed, err := strconv.Atoi(agency)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing agency: %v", err)
 	}
 	idParsed, err := strconv.Atoi(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing id: %v", err)
 	}
 	betNumberParsed, err := strconv.Atoi(betNumber)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing bet number: %v", err)
 	}
 	return &Bet{
 		Agency: agencyParsed,

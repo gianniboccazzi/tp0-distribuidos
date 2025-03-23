@@ -12,7 +12,7 @@ const (
 
 func PrepareBetMessage(bet domain.Bet) string {
 	/// Protocol: 
-	///|MESSAGE_LENGTH|TYPE|AGENCY|NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
+	///MESSAGE_LENGTH|AGENCY|NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
 
 	payload := fmt.Sprintf("%d|%s|%s|%d|%s|%d",
 		bet.Agency,

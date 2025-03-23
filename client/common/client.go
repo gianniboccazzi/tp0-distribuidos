@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -56,6 +57,7 @@ func (c *Client) createClientSocket() error {
 		return err
 	}
 	c.conn = conn
+	c.conn.SetDeadline(time.Now().Add(5 * time.Second))
 	return nil
 }
 
@@ -106,7 +108,7 @@ func (c *Client) handleSignal() {
 	}()
 }
 
-
+/// SendBet sends a bet to the server and waits for the ACK
 func (c *Client) SendBet(bet *domain.Bet) {
 	err := c.createClientSocket() 
 	if err != nil {
@@ -120,12 +122,13 @@ func (c *Client) SendBet(bet *domain.Bet) {
 	for bytesSent < len(bytesMessage) {
 		n, err := c.conn.Write(bytesMessage[bytesSent:])
 		if err != nil {
-			log.Criticalf("action: apuesta_enviada | result: fail | dni: %d | error: %v", bet.ID, err)
+			log.Criticalf("action: envio_apuesta | result: fail | dni: %d | error: %v", bet.ID, err)
 			c.conn.Close()
 			return
 		}
 		bytesSent += n
 	}
+	
 	// wait for ACK
 	ackLength := 4
 	bytesReceived := 0
@@ -133,18 +136,19 @@ func (c *Client) SendBet(bet *domain.Bet) {
 	for bytesReceived < ackLength {
 		n, err := c.conn.Read(bytesAck[bytesReceived:])
 		if err != nil {
-			log.Criticalf("action: recibo_ack | result: fail | dni: %d | error: %v", bet.ID, err)
+			log.Errorf("action: recibo_ack | result: fail | dni: %d | error: %v", bet.ID, err)
 			c.conn.Close()
 			return
 		}
 		bytesReceived += n
 	}
-	ack := string(bytesAck)
-	if ack != "ACK\n" {
-		log.Criticalf("action: recibo_ack | result: fail | dni: %d | error: ACK not received", bet.ID)
-		c.conn.Close()
+	
+	// Check ACK content
+	if strings.TrimSpace(string(bytesAck)) != "ACK" {
+		log.Errorf("action: recibo_ack | result: fail | dni: %d | error: ACK not received", bet.ID)
 		return
 	}
+
 	log.Infof("action: apuesta_enviada | result: success | dni: %d | numero: %d", bet.ID, bet.BetNumber)
 	c.conn.Close()
 }

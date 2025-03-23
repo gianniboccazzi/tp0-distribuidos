@@ -23,37 +23,30 @@ class Server:
 
     def __handle_client_connection(self, client_sock: socket.socket):
         """
-        Read message from a specific client socket and closes the socket
+        Read the message from the client and send an ack if the message was received correctly
+        Then, store the bet in the storage file
 
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
         try:
+            client_sock.settimeout(5)
             buffer = b""
             while b"|" not in buffer:
-                chunk = client_sock.recv(1)
+                chunk = client_sock.recv(3)
                 if not chunk:
                     raise ConnectionError("Client disconnected before sending message")
                 buffer += chunk
             message_length_str, remaining_data = buffer.split(b"|", 1)
             message_length = int(message_length_str.decode())
-            while len(remaining_data) < message_length:
-                chunk = client_sock.recv(message_length - len(remaining_data))
-                if not chunk:
-                    raise ConnectionError("Client disconnected before sending message")
-                remaining_data += chunk
+            remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
             bet = parse_message(remaining_data)
             self.__send_ack(client_sock)
             logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
             store_bets([bet])    
-        except ConnectionError as e:
+        except (socket.timeout, ConnectionError, ValueError, OSError) as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
-        except ValueError as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-        except OSError as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-        finally:
-            client_sock.close()
+
 
     def __accept_new_connection(self):
         """
@@ -66,7 +59,7 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         try:
-            c, addr = self._server_socket.accept()
+            c, addr = self._server_socket.accept()            
         except OSError as e:
             logging.error(f'action: accept_connections | result: fail | error: {e}')
             return
@@ -82,12 +75,21 @@ class Server:
         self.active = False
         self._server_socket.close()
 
+    def recv_all(self, sock, length):
+        data = b""
+        while len(data) < length:
+            chunk = sock.recv(length - len(data))
+            if not chunk:
+                raise ConnectionError("Client disconnected while receiving message")
+            data += chunk
+        return data
+
     def __send_ack(self, client_sock: socket.socket):
         """
         Send ack to client
 
         Function that sends an ack message to the client
         """
-        res = client_sock.send(b"ACK\n")
+        res = client_sock.sendall(b"ACK\n")
         if res == 0:
             raise ConnectionError("Client disconnected before sending ack message")

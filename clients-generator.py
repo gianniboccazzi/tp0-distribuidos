@@ -37,7 +37,12 @@ def generate_compose(num_clients):
             "image": "client:latest",
             "entrypoint": "/client",
             "environment": [
-                f"CLI_ID={i}"
+                f"CLI_ID={i}",
+                f"NOMBRE=Nombre_{i}",
+                f"APELLIDO=Apellido_{i}",
+                f"DNI=1234567{i}",
+                f"NACIMIENTO=1990-01-0{i}",
+                f"NUMERO=123{i}"
             ],
             "networks": ["testing_net"],
             "volumes": [

@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/communication"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 	"github.com/op/go-logging"
 )
 
@@ -101,4 +103,43 @@ func (c *Client) handleSignal() {
 		<-signalChan
 		c.active = false
 	}()
+}
+
+
+func (c *Client) SendBet(bet *domain.Bet) {
+	c.createClientSocket() 
+	message := communication.PrepareBetMessage(*bet)
+	bytesMessage := []byte(message)
+	bytesSent := 0
+	// avoid short-write
+	for bytesSent < len(bytesMessage) {
+		n, err := c.conn.Write(bytesMessage[bytesSent:])
+		if err != nil {
+			log.Criticalf("action: apuesta_enviada | result: fail | dni: %d | error: %v", bet.ID, err)
+			c.conn.Close()
+			return
+		}
+		bytesSent += n
+	}
+	// wait for ACK
+	ackLength := 4
+	bytesReceived := 0
+	bytesAck := make([]byte, ackLength)
+	for bytesReceived < ackLength {
+		n, err := c.conn.Read(bytesAck[bytesReceived:])
+		if err != nil {
+			log.Criticalf("action: recibo_ack | result: fail | dni: %d | error: %v", bet.ID, err)
+			c.conn.Close()
+			return
+		}
+		bytesReceived += n
+	}
+	ack := string(bytesAck)
+	if ack != "ACK\n" {
+		log.Criticalf("action: recibo_ack | result: fail | dni: %d | error: ACK not received", bet.ID)
+		c.conn.Close()
+		return
+	}
+	log.Infof("action: apuesta_enviada | result: success | dni: %d | numero: %d", bet.ID, bet.BetNumber)
+	c.conn.Close()
 }

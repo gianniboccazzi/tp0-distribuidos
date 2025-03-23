@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
 var log = logging.MustGetLogger("log")
@@ -101,7 +102,7 @@ func main() {
 	}
 
 	// Print program config with debugging purposes
-	PrintConfig(v)
+	// PrintConfig(v)
 
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
@@ -111,5 +112,9 @@ func main() {
 	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop()
+	bet, err := domain.LoadBet()
+	if err != nil {
+		log.Criticalf("action: load_bet | result: fail | client_id: %v | error: %v", clientConfig.ID, err)
+	}
+	client.SendBet(bet)
 }

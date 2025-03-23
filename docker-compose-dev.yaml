@@ -18,6 +18,11 @@ services:
     entrypoint: /client
     environment:
     - CLI_ID=1
+    - NOMBRE=Pepito
+    - APELLIDO=Gomez
+    - DOCUMENTO=12345678
+    - NACIMIENTO=1990-01-01
+    - NUMERO=1234
     networks:
     - testing_net
     volumes:

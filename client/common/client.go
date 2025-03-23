@@ -190,7 +190,6 @@ func (c *Client) SendBets() {
 			bet, err := domain.ReadBet(csvReader)
 			if err != nil {
 				if strings.Contains(err.Error(), "EOF") {
-					log.Infof("LLEGUE AL EOF")
 					EOF = true
 					break
 				}

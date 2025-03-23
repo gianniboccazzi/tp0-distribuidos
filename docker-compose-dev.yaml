@@ -25,7 +25,7 @@ services:
       source: ./client/config.yaml
       target: /config/client_config.yaml
     - type: bind
-      source: ./.data/dataset
+      source: ./.data
       target: /.data
     depends_on:
     - server

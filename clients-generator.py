@@ -48,7 +48,7 @@ def generate_compose(num_clients):
                 },
                 {
                     "type": "bind",
-                    "source": "./.data/dataset",
+                    "source": "./.data",
                     "target": "/.data"
                 }
                 ],

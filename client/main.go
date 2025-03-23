@@ -115,6 +115,7 @@ func main() {
 	bet, err := domain.LoadBet()
 	if err != nil {
 		log.Criticalf("action: load_bet | result: fail | client_id: %v | error: %v", clientConfig.ID, err)
+		return
 	}
 	client.SendBet(bet)
 }

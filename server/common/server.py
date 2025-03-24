@@ -2,12 +2,8 @@ import signal
 import socket
 import logging
 
-from .utils import store_bets
-from communication.protocol import parse_batch, parse_message
+from communication.protocol import BetProtocol
 
-
-ERROR_RES = "ERR"
-ACK_RES = "ACK"
 
 
 class Server:
@@ -17,42 +13,15 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.active = True
+        self.protocol = BetProtocol()
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__signal_handler)
         while self.active:
             client_sock = self.__accept_new_connection()
             if client_sock:
-                self.__handle_client_connection_batches(client_sock)
-
-    def __handle_client_connection_batches(self, client_sock: socket.socket):
-        eof = False
-        client_sock.settimeout(5)
-        bets = []
-        while not eof:
-            try:
-                buffer = b""
-                while b"|" not in buffer:
-                    chunk = client_sock.recv(2)
-                    if not chunk:
-                        raise ConnectionError("Client disconnected before sending message")
-                    buffer += chunk
-
-                message_length_bytes, remaining_data = buffer.split(b"|", 1)
-                message_length = int(message_length_bytes.decode())
-                remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
-                bets, eof = parse_batch(remaining_data)
-                self.__send_response(client_sock, ACK_RES)
-                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-                store_bets(bets)
-            except ValueError as e:
-                logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
-                self.__send_response(client_sock, ERROR_RES)
-                break
-            except (socket.timeout, ConnectionError, OSError) as e:
-                logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
-                break
-
+                self.protocol.handle_client_connection_batches(client_sock)
+                client_sock.close()
 
     def __accept_new_connection(self):
         """
@@ -80,21 +49,6 @@ class Server:
         """
         self._server_socket.close()
 
-    def recv_all(self, sock, length):
-        data = b""
-        while len(data) < length:
-            chunk = sock.recv(length - len(data))
-            if not chunk:
-                raise ConnectionError("Client disconnected while receiving message")
-            data += chunk
-        return data
+    
 
-    def __send_response(self, client_sock: socket.socket, response: str):
-        """
-        Send ack to client
-
-        Function that sends an ack message to the client
-        """
-        res = client_sock.sendall(response.encode())
-        if res == 0:
-            raise ConnectionError("Client disconnected before sending ack message")
+    

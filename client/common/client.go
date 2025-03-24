@@ -146,7 +146,7 @@ func (c *Client) SendBet(bet *domain.Bet) {
 	}
 	
 	// Check ACK content
-	if strings.TrimSpace(string(bytesAck)) != "ACK" {
+	if string(bytesAck) != "ACK" {
 		log.Errorf("action: recibo_ack | result: fail | dni: %d | error: ACK not received", bet.ID)
 		c.conn.Close()
 		return
@@ -206,10 +206,10 @@ func (c *Client) SendBets() {
 			}
 			packet = append(packet, betPacket...)	
 		}
-		batchMessage := communication.PrepareBatchMessage(packet)
 		if EOF {
-			batchMessage = append(batchMessage, []byte("|||")...)
+			packet = append(packet, []byte("|||")...)
 		}
+		batchMessage := communication.PrepareBatchMessage(packet)
 		bytesSent := 0
 		// avoid short-write
 		for bytesSent < len(batchMessage) {
@@ -220,21 +220,21 @@ func (c *Client) SendBets() {
 			}
 			bytesSent += n
 		}
-		// wait for ACK
-		ackLength := 4
+		// wait for response
+		resLength := 3
 		bytesReceived := 0
-		bytesAck := make([]byte, ackLength)
-		for bytesReceived < ackLength {
+		bytesAck := make([]byte, resLength)
+		for bytesReceived < resLength {
 			n, err := c.conn.Read(bytesAck[bytesReceived:])
 			if err != nil {
-				log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+				log.Errorf("action: receive_res | result: fail | client_id: %v | error: %v", c.config.ID, err)
 				return
 			}
 			bytesReceived += n
 		}
-		// Check ACK content
-		if strings.TrimSpace(string(bytesAck)) != "ACK" {
-			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: ACK not received", c.config.ID)
+		
+		if string(bytesAck) != "ACK" {
+			log.Errorf("action: receive_res | result: fail | client_id: %v | error: ACK not received", c.config.ID)
 			return
 		}
 		log.Infof("action: apuesta_enviada | result: success | client_id: %d | cantidad: %d", c.config.ID, betsQuantity)

@@ -6,6 +6,10 @@ from .utils import store_bets
 from communication.protocol import parse_batch, parse_message
 
 
+ERROR_RES = "ERR"
+ACK_RES = "ACK"
+
+
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
@@ -55,18 +59,21 @@ class Server:
             try:
                 buffer = b""
                 while b"|" not in buffer:
-                    chunk = client_sock.recv(3)
+                    chunk = client_sock.recv(2)
                     if not chunk:
                         raise ConnectionError("Client disconnected before sending message")
                     buffer += chunk
-                message_length_str, remaining_data = buffer.split(b"|", 1)
-                message_length = int(message_length_str.decode())
+                message_length_bytes, remaining_data = buffer.split(b"|", 1)
+                message_length = int(message_length_bytes.decode())
                 remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
                 bets, eof = parse_batch(remaining_data)
-                self.__send_ack(client_sock)
+                self.__send_response(client_sock, ACK_RES)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
                 store_bets(bets)
-            except (socket.timeout, ConnectionError, ValueError, OSError) as e:
+            except ValueError as e:
+                logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
+                self.__send_response(client_sock, ERROR_RES)
+            except (socket.timeout, ConnectionError, OSError) as e:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
                 eof = True
 
@@ -107,12 +114,12 @@ class Server:
             data += chunk
         return data
 
-    def __send_ack(self, client_sock: socket.socket):
+    def __send_response(self, client_sock: socket.socket, response: str):
         """
         Send ack to client
 
         Function that sends an ack message to the client
         """
-        res = client_sock.sendall(b"ACK\n")
+        res = client_sock.sendall(response.encode())
         if res == 0:
             raise ConnectionError("Client disconnected before sending ack message")

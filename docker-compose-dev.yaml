@@ -6,6 +6,7 @@ services:
     entrypoint: python3 /main.py
     environment:
     - PYTHONUNBUFFERED=1
+    - CLIENTS_TOTAL=1
     networks:
     - testing_net
     volumes:
@@ -17,7 +18,7 @@ services:
     image: client:latest
     entrypoint: /client
     environment:
-    - CLI_ID=2
+    - CLI_ID=1
     networks:
     - testing_net
     volumes:

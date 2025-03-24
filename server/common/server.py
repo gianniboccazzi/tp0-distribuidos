@@ -7,21 +7,34 @@ from communication.protocol import BetProtocol
 
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, clients_total):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.active = True
+        self.lottery_completed = False
         self.protocol = BetProtocol()
+        self.clients_total = clients_total
+        self.clients_ready = set()
 
     def run(self):
         signal.signal(signal.SIGTERM, self.__signal_handler)
         while self.active:
             client_sock = self.__accept_new_connection()
             if client_sock:
-                self.protocol.handle_client_connection_batches(client_sock)
+                client_ready = self.protocol.handle_client_connection(client_sock, self.lottery_completed)
                 client_sock.close()
+                self.check_lottery_status(client_ready)
+
+    def check_lottery_status(self, client_ready):
+        if client_ready:
+            self.clients_ready.add(client_ready)
+        if not self.lottery_completed and len(self.clients_ready) == self.clients_total:
+            self.lottery_completed = True
+            logging.info("action: sorteo | result: success")
+
+
 
     def __accept_new_connection(self):
         """

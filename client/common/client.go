@@ -76,5 +76,15 @@ func (c *Client) SendBets() {
 	defer c.conn.Close()
 	betProtocol := communication.NewBetProtocol(c.conn, c.config.BatchMaxAmount, c.config.ID, MAX_PACKET_SIZE)
 	betProtocol.SendBatches()
+}
 
+func (c *Client) RequestWinners() {
+	err := c.createClientSocket()
+	if err != nil {
+		log.Criticalf("action: conexion_socket | result: fail | client_id: %d | error: %v", c.config.ID, err)
+		return
+	}
+	defer c.conn.Close()
+	betProtocol := communication.NewBetProtocol(c.conn, c.config.BatchMaxAmount, c.config.ID, MAX_PACKET_SIZE)
+	betProtocol.RequestWinners()
 }

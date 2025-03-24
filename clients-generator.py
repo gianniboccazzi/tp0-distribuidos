@@ -1,5 +1,6 @@
 import sys, yaml
 
+
 def generate_compose(num_clients):
     compose = {
         "name": "tp0",
@@ -9,7 +10,8 @@ def generate_compose(num_clients):
                 "image": "server:latest",
                 "entrypoint": "python3 /main.py",
                 "environment": [
-                    "PYTHONUNBUFFERED=1"
+                    "PYTHONUNBUFFERED=1",
+                    f"CLIENTS_TOTAL={num_clients}"
                 ],
                 "networks": ["testing_net"],
                 "volumes": [

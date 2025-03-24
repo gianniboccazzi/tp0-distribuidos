@@ -2,7 +2,7 @@
 import logging
 import signal
 import socket
-from common.utils import Bet, store_bets
+from common.utils import Bet, has_won, load_bets, store_bets
 
 
 ERROR_RES = "ERR"
@@ -33,19 +33,13 @@ def parse_batch(message: bytes) -> tuple[list[Bet], bool]:
     return bets, eof
 
 class BetProtocol:
-    def handle_client_connection_batches(self, client_sock: socket.socket):
+    def receive_batches(self, client_sock: socket.socket, client_id):
         eof = False
-        client_sock.settimeout(5)
         bets = []
         while not eof:
             try:
                 buffer = b""
-                while b"|" not in buffer:
-                    chunk = client_sock.recv(2)
-                    if not chunk:
-                        raise ConnectionError("Client disconnected before sending message")
-                    buffer += chunk
-
+                buffer = self.receive_until_delimiter(client_sock, buffer)
                 message_length_bytes, remaining_data = buffer.split(b"|", 1)
                 message_length = int(message_length_bytes.decode())
                 remaining_data += self.__recv_all(client_sock, message_length - len(remaining_data))
@@ -53,6 +47,7 @@ class BetProtocol:
                 self.__send_response(client_sock, ACK_RES)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
                 store_bets(bets)
+                return client_id
             except ValueError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 self.__send_response(client_sock, ERROR_RES)
@@ -60,7 +55,45 @@ class BetProtocol:
             except (socket.timeout, ConnectionError, OSError) as e:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
                 break
+        return
+
+    def receive_until_delimiter(self, client_sock, buffer):
+        while b"|" not in buffer:
+            chunk = client_sock.recv(2)
+            if not chunk:
+                raise ConnectionError("Client disconnected before sending message")
+            buffer += chunk
+        return buffer
     
+    def handle_client_connection(self, client_sock: socket.socket, lottery_ready):
+        client_sock.settimeout(5)
+        buffer = b""
+        buffer = self.receive_until_delimiter(client_sock, buffer)
+        message_length_bytes, remaining_data = buffer.split(b"|", 1)
+        message_length = int(message_length_bytes.decode())
+        remaining_data += self.__recv_all(client_sock, message_length - len(remaining_data))
+        payload = remaining_data.decode()
+        client_id, action = payload.split("|")
+        if action == "BETS":
+            return self.receive_batches(client_sock, client_id)
+        if action == "WINNERS":
+            return self.send_winners(client_sock, lottery_ready)
+        return 
+
+    
+    def send_winners(self, client_sock: socket.socket, client_id, lottery_ready: bool):
+        if not lottery_ready:
+            self.__send_response(client_sock, ERROR_RES)
+            return
+        winners = []
+        for bet in load_bets():
+            if has_won(bet) and bet.agency == int(client_id):
+                winners.append(bet.document)
+        payload = "|".join(winners)
+        header = f"{len(payload)}|"
+        self.__send_response(client_sock, header + payload)
+        return
+        
     def __send_response(self, client_sock: socket.socket, response: str):
         """
         Send ack to client

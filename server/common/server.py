@@ -25,32 +25,6 @@ class Server:
             if client_sock:
                 self.__handle_client_connection_batches(client_sock)
 
-    def __handle_client_connection(self, client_sock: socket.socket):
-        """
-        Read the message from the client and send an ack if the message was received correctly
-        Then, store the bet in the storage file
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
-        """
-        try:
-            client_sock.settimeout(5)
-            buffer = b""
-            while b"|" not in buffer:
-                chunk = client_sock.recv(3)
-                if not chunk:
-                    raise ConnectionError("Client disconnected before sending message")
-                buffer += chunk
-            message_length_str, remaining_data = buffer.split(b"|", 1)
-            message_length = int(message_length_str.decode())
-            remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
-            bet = parse_message(remaining_data)
-            self.__send_ack(client_sock)
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
-            store_bets([bet])    
-        except (socket.timeout, ConnectionError, ValueError, OSError) as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
-
     def __handle_client_connection_batches(self, client_sock: socket.socket):
         eof = False
         client_sock.settimeout(5)
@@ -63,6 +37,7 @@ class Server:
                     if not chunk:
                         raise ConnectionError("Client disconnected before sending message")
                     buffer += chunk
+
                 message_length_bytes, remaining_data = buffer.split(b"|", 1)
                 message_length = int(message_length_bytes.decode())
                 remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
@@ -73,9 +48,10 @@ class Server:
             except ValueError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 self.__send_response(client_sock, ERROR_RES)
+                break
             except (socket.timeout, ConnectionError, OSError) as e:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
-                eof = True
+                break
 
 
     def __accept_new_connection(self):
@@ -102,7 +78,6 @@ class Server:
 
         Function that is called when a SIGTERM signal is received
         """
-        self.active = False
         self._server_socket.close()
 
     def recv_all(self, sock, length):

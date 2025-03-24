@@ -17,7 +17,7 @@ services:
     image: client:latest
     entrypoint: /client
     environment:
-    - CLI_ID=1
+    - CLI_ID=2
     networks:
     - testing_net
     volumes:

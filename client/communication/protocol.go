@@ -215,24 +215,27 @@ func (b *BetProtocol) ReceiveWinners() error {
 		return fmt.Errorf("error finding delimiter")
 	}
 	bytesToRead := buffer[:delimiterIndex]
+
 	remainingData := buffer[delimiterIndex+1:]
+
 	messageLength, err := strconv.Atoi(string(bytesToRead))
 	if err != nil {
 		return fmt.Errorf("error parsing message length: %w", err)
 	}
 	bytesReceived := len(remainingData)
 	bufferToRead := make([]byte, messageLength)
-	copy(bufferToRead, remainingData)
-	remainingData, err = b.ReceiveMessage(messageLength - bytesReceived, bufferToRead)
+	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead)
 	if err != nil {
 		return err
 	}
+	remainingData = append(remainingData, remainingDataToRead...)
 	remainingDataString := string(remainingData)
-	if remainingDataString == "ERR" {
+	remainingDataString = strings.TrimRight(remainingDataString, "\x00")
+	if strings.TrimSpace(remainingDataString) == "ERR" {
 		log.Infof("action: consulta_ganadores | result: fail | client_id: %s | error: el torneo no fue realizado aun", b.ClientID)
 		return nil
 	}
-	if remainingDataString == "NONE" {
+	if strings.TrimSpace(remainingDataString) == "NONE" {
 		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: 0")
 		return nil
 	}
@@ -247,7 +250,7 @@ func (b *BetProtocol) ReceiveWinners() error {
 func (b *BetProtocol) receiveUntilDelimiter() ([]byte, error) {
 	buffer := make([]byte, 0)
 	delimiter := byte('|')
-	chunkSize := 2 
+	chunkSize := 3 
 
 	for !bytes.Contains(buffer, []byte{delimiter}) {
 		chunk := make([]byte, chunkSize)

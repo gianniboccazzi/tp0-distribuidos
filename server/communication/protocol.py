@@ -83,7 +83,8 @@ class BetProtocol:
     
     def send_winners(self, client_sock: socket.socket, client_id, lottery_ready: bool):
         if not lottery_ready:
-            self.__send_response(client_sock, ERROR_RES)
+            payload_length = len(ERROR_RES)
+            self.__send_response(client_sock, f"{payload_length}|{ERROR_RES}")
             return
         winners = []
         for bet in load_bets():

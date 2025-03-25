@@ -114,5 +114,5 @@ func main() {
 
 	client := common.NewClient(clientConfig)
 	client.SendBets()
-	client.RequestWinners()
+	// client.RequestWinners()
 }

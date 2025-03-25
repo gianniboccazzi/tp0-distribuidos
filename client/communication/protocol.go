@@ -134,15 +134,33 @@ func(b *BetProtocol) SendMessage(message []byte) error {
 
 
 func(b *BetProtocol) ReceiveAck() error {
-	// wait for response
-	resLength := 3
-	buffer := make([]byte, resLength)
-	bytesAck, err := b.ReceiveMessage(resLength, buffer)
+	buffer, err := b.receiveUntilDelimiter()
 	if err != nil {
 		return err
 	}
-	if string(bytesAck) != "ACK" {
-		return fmt.Errorf("ACK not received")
+	delimiterIndex := bytes.Index(buffer, []byte("|"))
+	if delimiterIndex == -1 {
+		return fmt.Errorf("error finding delimiter")
+	}
+	bytesToRead := buffer[:delimiterIndex]
+
+	remainingData := buffer[delimiterIndex+1:]
+
+	messageLength, err := strconv.Atoi(string(bytesToRead))
+	if err != nil {
+		return fmt.Errorf("error parsing message length: %w", err)
+	}
+	bytesReceived := len(remainingData)
+	bufferToRead := make([]byte, messageLength)
+	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead)
+	if err != nil {
+		return err
+	}
+	remainingData = append(remainingData, remainingDataToRead...)
+	remainingDataString := string(remainingData)
+	remainingDataString = strings.TrimRight(remainingDataString, "\x00")
+	if strings.TrimSpace(remainingDataString) != "ACK" {
+		return fmt.Errorf("error receiving ack: %s", remainingDataString)
 	}
 	return nil
 }

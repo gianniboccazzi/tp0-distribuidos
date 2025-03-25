@@ -17,20 +17,16 @@ def parse_message(message: bytes) -> Bet:
     return Bet(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5])
     
 
-def parse_batch(message: bytes) -> tuple[list[Bet], bool]:
-    decoded_message = message.decode()
-    eof = False
-    if decoded_message.endswith("|||"):
-        eof = True
-        decoded_message = decoded_message[:-3]
-    parts = decoded_message.split("||")
+def parse_batch(message: str) -> list[Bet]:
+    parts = message.split("||")
     bets = []
     for part in parts:
         bet_parts = part.split("|")
         if len(bet_parts) != 6:
+            print(bet_parts)
             raise ValueError("Invalid message format")
         bets.append(Bet(bet_parts[0], bet_parts[1], bet_parts[2], bet_parts[3], bet_parts[4], bet_parts[5]))
-    return bets, eof
+    return bets
 
 class BetProtocol:
     def receive_batches(self, client_sock: socket.socket, client_id):
@@ -43,10 +39,14 @@ class BetProtocol:
                 message_length_bytes, remaining_data = buffer.split(b"|", 1)
                 message_length = int(message_length_bytes.decode())
                 remaining_data += self.__recv_all(client_sock, message_length - len(remaining_data))
-                bets, eof = parse_batch(remaining_data)
-                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+                decoded_message = remaining_data.decode()
+                if decoded_message == "EOF":
+                    eof = True
+                    break
+                bets = parse_batch(decoded_message)
                 store_bets(bets)
                 self.__send_response(client_sock, ACK_RES)
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
             except ValueError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 self.__send_response(client_sock, ERROR_RES)
@@ -63,7 +63,8 @@ class BetProtocol:
                 raise ConnectionError("Client disconnected before sending message")
             buffer += chunk
         return buffer
-    
+        
+
     def handle_client_connection(self, client_sock: socket.socket, lottery_ready):
         client_sock.settimeout(20)
         buffer = b""

@@ -90,11 +90,14 @@ func (b *BetProtocol) SendBatches() {
 			betsQuantity++
 		}
 
-		if isEOF {
-			packet = append(packet, []byte(EOF_DELIMITER)...)
+
+
+		if isEOF && len(packet) == 0 {
+			break
 		}
 
 		batchMessage := PrepareBatchMessage(packet)
+		
 
 		if err := b.SendMessage(batchMessage); err != nil {
 			log.Criticalf("action: send_batch | result: fail | client_id: %v | error: %v", b.ClientID, err)
@@ -111,6 +114,11 @@ func (b *BetProtocol) SendBatches() {
 		}
 		log.Infof("action: apuesta_enviada | result: success | client_id: %s | cantidad: %d", b.ClientID, betsQuantity)
 	}
+	err = b.SendEOF()
+	if err != nil {
+		log.Criticalf("action: send_eof | result: fail | client_id: %v | error: %v", b.ClientID, err)
+		return
+	}
 }
 
 func (b *BetProtocol) SendStartBatch() error {
@@ -120,7 +128,12 @@ func (b *BetProtocol) SendStartBatch() error {
 	return b.SendMessage(message)
 }
 
-
+func (b *BetProtocol) SendEOF() error {
+	payload := "EOF"
+	header := fmt.Sprintf("%d|", len(payload))
+	message := append([]byte(header), []byte(payload)...)
+	return b.SendMessage(message)
+}
 
 
 func(b *BetProtocol) SendMessage(message []byte) error {
@@ -282,7 +295,7 @@ func (b *BetProtocol) receiveUntilDelimiter() ([]byte, error) {
 			return nil, fmt.Errorf("error reading from client: %w", err)
 		}
 		if n == 0 {
-			return nil, fmt.Errorf("client disconnected before sending message")
+			return nil, fmt.Errorf("server disconnected before sending message")
 		}
 
 		buffer.Write(chunk[:n]) 

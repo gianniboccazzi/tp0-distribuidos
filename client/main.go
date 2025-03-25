@@ -115,6 +115,4 @@ func main() {
 	client := common.NewClient(clientConfig)
 	client.SendBets()
 	client.RequestWinners()
-	time.Sleep(5 * time.Second)
-	client.RequestWinners()
 }

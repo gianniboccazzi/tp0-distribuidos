@@ -266,7 +266,7 @@ func (b *BetProtocol) ReceiveWinners() error {
 	remainingDataString := string(remainingData)
 	remainingDataString = strings.TrimRight(remainingDataString, "\x00")
 	if strings.TrimSpace(remainingDataString) == "ERR" {
-		log.Infof("action: consulta_ganadores | result: fail | client_id: %s | error: el torneo no fue realizado aun", b.ClientID)
+		log.Infof("action: consulta_ganadores | result: success | client_id: %s | response: el torneo no fue realizado aun", b.ClientID)
 		return nil
 	}
 	if strings.TrimSpace(remainingDataString) == "NONE" {

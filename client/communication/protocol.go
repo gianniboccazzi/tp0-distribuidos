@@ -268,7 +268,7 @@ func (b *BetProtocol) ReceiveWinners() error {
 func (b *BetProtocol) receiveUntilDelimiter() ([]byte, error) {
 	buffer := make([]byte, 0)
 	delimiter := byte('|')
-	chunkSize := 3 
+	chunkSize := 2 
 
 	for !bytes.Contains(buffer, []byte{delimiter}) {
 		chunk := make([]byte, chunkSize)
@@ -280,6 +280,7 @@ func (b *BetProtocol) receiveUntilDelimiter() ([]byte, error) {
 			return nil, fmt.Errorf("client disconnected before sending message")
 		}
 		buffer = append(buffer, chunk[:n]...) 
+		log.Infof("Received: %s", buffer)
 	}
 	return buffer, nil
 }

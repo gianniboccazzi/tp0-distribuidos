@@ -44,10 +44,9 @@ class BetProtocol:
                 message_length = int(message_length_bytes.decode())
                 remaining_data += self.__recv_all(client_sock, message_length - len(remaining_data))
                 bets, eof = parse_batch(remaining_data)
-                self.__send_response(client_sock, ACK_RES)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
                 store_bets(bets)
-                return client_id
+                self.__send_response(client_sock, ACK_RES)
             except ValueError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 self.__send_response(client_sock, ERROR_RES)
@@ -55,7 +54,7 @@ class BetProtocol:
             except (socket.timeout, ConnectionError, OSError) as e:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
                 break
-        return
+        return client_id
 
     def receive_until_delimiter(self, client_sock, buffer):
         while b"|" not in buffer:
@@ -66,7 +65,7 @@ class BetProtocol:
         return buffer
     
     def handle_client_connection(self, client_sock: socket.socket, lottery_ready):
-        client_sock.settimeout(5)
+        client_sock.settimeout(20)
         buffer = b""
         buffer = self.receive_until_delimiter(client_sock, buffer)
         message_length_bytes, remaining_data = buffer.split(b"|", 1)
@@ -99,12 +98,11 @@ class BetProtocol:
     def __send_response(self, client_sock: socket.socket, response: str):
         response_length = len(response)
         response_bytes = f"{response_length}|{response}".encode()
-        print(response_bytes.decode())
         bytesSent = 0
         while bytesSent < len(response_bytes):
             bytesSent += client_sock.send(response_bytes[bytesSent:])
-            print(bytesSent)
         return
+    
     
     def __recv_all(self, sock, length):
         data = b""

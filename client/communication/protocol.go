@@ -105,7 +105,6 @@ func (b *BetProtocol) SendBatches() {
 			log.Criticalf("action: receive_ack | result: fail | client_id: %v | error: %v", b.ClientID, err)
 			return
 		}
-
 		log.Infof("action: apuesta_enviada | result: success | client_id: %s | cantidad: %d", b.ClientID, betsQuantity)
 	}
 }
@@ -146,13 +145,14 @@ func(b *BetProtocol) ReceiveAck() error {
 
 	remainingData := buffer[delimiterIndex+1:]
 
+
 	messageLength, err := strconv.Atoi(string(bytesToRead))
 	if err != nil {
 		return fmt.Errorf("error parsing message length: %w", err)
 	}
 	bytesReceived := len(remainingData)
 	bufferToRead := make([]byte, messageLength)
-	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead)
+	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead, bytesReceived)
 	if err != nil {
 		return err
 	}
@@ -165,14 +165,13 @@ func(b *BetProtocol) ReceiveAck() error {
 	return nil
 }
 
-func (b *BetProtocol) ReceiveMessage(resLength int, buffer []byte) ([]byte, error) {
-	bytesReceived := 0
-	for bytesReceived < resLength {
-		n, err := b.Conn.Read(buffer[bytesReceived:])
+func (b *BetProtocol) ReceiveMessage(resLength int, buffer []byte, offset int) ([]byte, error) {
+	for offset < resLength {
+		n, err := b.Conn.Read(buffer[offset:])
 		if err != nil {
 			return nil, err
 		}
-		bytesReceived += n
+		offset += n
 	}
 	return buffer, nil
 }
@@ -242,7 +241,7 @@ func (b *BetProtocol) ReceiveWinners() error {
 	}
 	bytesReceived := len(remainingData)
 	bufferToRead := make([]byte, messageLength)
-	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead)
+	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead, bytesReceived)
 	if err != nil {
 		return err
 	}
@@ -266,21 +265,28 @@ func (b *BetProtocol) ReceiveWinners() error {
 
 
 func (b *BetProtocol) receiveUntilDelimiter() ([]byte, error) {
-	buffer := make([]byte, 0)
-	delimiter := byte('|')
-	chunkSize := 2 
+	var buffer bytes.Buffer
+	chunkSize := 2
 
-	for !bytes.Contains(buffer, []byte{delimiter}) {
+	for {
 		chunk := make([]byte, chunkSize)
 		n, err := b.Conn.Read(chunk)
 		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return nil, fmt.Errorf("timeout waiting for delimiter")
+			}
 			return nil, fmt.Errorf("error reading from client: %w", err)
 		}
 		if n == 0 {
 			return nil, fmt.Errorf("client disconnected before sending message")
 		}
-		buffer = append(buffer, chunk[:n]...) 
-		log.Infof("Received: %s", buffer)
+
+		buffer.Write(chunk[:n]) 
+
+		if strings.Contains(buffer.String(), "|") {
+			break
+		}
 	}
-	return buffer, nil
+
+	return buffer.Bytes(), nil
 }

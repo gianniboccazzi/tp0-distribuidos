@@ -136,7 +136,8 @@ func(b *BetProtocol) SendMessage(message []byte) error {
 func(b *BetProtocol) ReceiveAck() error {
 	// wait for response
 	resLength := 3
-	bytesAck, err := b.ReceiveMessage(resLength, make([]byte, 0))
+	buffer := make([]byte, resLength)
+	bytesAck, err := b.ReceiveMessage(resLength, buffer)
 	if err != nil {
 		return err
 	}
@@ -220,7 +221,9 @@ func (b *BetProtocol) ReceiveWinners() error {
 		return fmt.Errorf("error parsing message length: %w", err)
 	}
 	bytesReceived := len(remainingData)
-	remainingData, err = b.ReceiveMessage(messageLength - bytesReceived, remainingData)
+	bufferToRead := make([]byte, messageLength)
+	copy(bufferToRead, remainingData)
+	remainingData, err = b.ReceiveMessage(messageLength - bytesReceived, bufferToRead)
 	if err != nil {
 		return err
 	}
@@ -229,8 +232,11 @@ func (b *BetProtocol) ReceiveWinners() error {
 		log.Infof("action: consulta_ganadores | result: fail | client_id: %s | error: el torneo no fue realizado aun", b.ClientID)
 		return nil
 	}
+	if remainingDataString == "NONE" {
+		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: 0")
+		return nil
+	}
 	winners := strings.Split(remainingDataString, "|")
-
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
 	return nil	
 }

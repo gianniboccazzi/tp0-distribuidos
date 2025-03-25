@@ -30,7 +30,7 @@ class Server:
     def check_lottery_status(self, client_ready):
         if client_ready:
             self.clients_ready.add(client_ready)
-        if not self.lottery_completed and len(self.clients_ready) == self.clients_total:
+        if not self.lottery_completed and len(self.clients_ready) == int(self.clients_total):
             self.lottery_completed = True
             logging.info("action: sorteo | result: success")
 

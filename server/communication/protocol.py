@@ -77,7 +77,7 @@ class BetProtocol:
         if action == "BETS":
             return self.receive_batches(client_sock, client_id)
         if action == "WINNERS":
-            return self.send_winners(client_sock, lottery_ready)
+            return self.send_winners(client_sock,client_id, lottery_ready)
         return 
 
     
@@ -89,20 +89,20 @@ class BetProtocol:
         for bet in load_bets():
             if has_won(bet) and bet.agency == int(client_id):
                 winners.append(bet.document)
-        payload = "|".join(winners)
+        if len(winners) == 0:
+            payload = "NONE"
+        else:
+            payload = "|".join(winners)
         header = f"{len(payload)}|"
         self.__send_response(client_sock, header + payload)
         return
         
     def __send_response(self, client_sock: socket.socket, response: str):
-        """
-        Send ack to client
-
-        Function that sends an ack message to the client
-        """
-        res = client_sock.sendall(response.encode())
-        if res == 0:
-            raise ConnectionError("Client disconnected before sending ack message")
+        response_bytes = response.encode()
+        bytesSent = 0
+        while bytesSent < len(response_bytes):
+            bytesSent += client_sock.send(response_bytes[bytesSent:])
+        return
     
     def __recv_all(self, sock, length):
         data = b""

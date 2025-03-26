@@ -9,14 +9,6 @@ ERROR_RES = "ERR"
 ACK_RES = "ACK"
 
 
-def parse_message(message: bytes) -> Bet:
-    decoded_message = message.decode()
-    parts = decoded_message.split("|")
-    if len(parts) != 6:
-        raise ValueError("Invalid message format")
-    return Bet(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5])
-    
-
 def parse_batch(message: str) -> list[Bet]:
     parts = message.split("||")
     bets = []
@@ -50,7 +42,6 @@ class BetProtocol:
             except ValueError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 self.__send_response(client_sock, ERROR_RES)
-                break
             except (socket.timeout, ConnectionError, OSError) as e:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
                 break

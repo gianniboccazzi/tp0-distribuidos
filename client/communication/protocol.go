@@ -107,7 +107,7 @@ func (b *BetProtocol) SendBatches() {
 		if err := b.ReceiveAck(); err != nil {
 			if strings.Contains(err.Error(), "ERR") {
 				log.Infof("action: apuesta_enviada | result: fail | client_id: %s | error: apuesta invalida", b.ClientID)
-				return
+				continue
 			}
 			log.Criticalf("action: receive_ack | result: fail | client_id: %v | error: %v", b.ClientID, err)
 			return

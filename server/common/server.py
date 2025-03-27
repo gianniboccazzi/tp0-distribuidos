@@ -1,48 +1,55 @@
+import signal
 import socket
 import logging
 
+from communication.protocol import BetProtocol
+from multiprocessing import Process, Manager, Queue
+
+from common.client_handler import ClientHandler
+
+
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, clients_total):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self.active = True
+        self.clients_total = clients_total
+        self.manager = Manager()
+        self.lottery_completed = self.manager.Value('b', False)
+        self.clients_ready = self.manager.dict()
+        self.file_lock = self.manager.Lock()
+        self.lottery_lock = self.manager.Lock()
+        self.processes = []
 
     def run(self):
-        """
-        Dummy Server loop
-
-        Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
-        finishes, servers starts to accept new connections again
-        """
-
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
-        while True:
+        signal.signal(signal.SIGTERM, self.__signal_handler)
+        while self.active:
             client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+            if client_sock:
+                client_handler = ClientHandler(client_sock, self.lottery_completed, self.clients_ready,
+                                                self.clients_total, self.file_lock, self.lottery_lock)
+                process = Process(target=client_handler.run)
+                process.start()
+                self.processes.append(process)
+                client_sock.close()
+        self.__shutdown()
 
-    def __handle_client_connection(self, client_sock):
+    def __shutdown(self):
         """
-        Read message from a specific client socket and closes the socket
+        Shutdown server
 
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
+        Function that closes the server socket and sets the active flag to False
         """
-        try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
-        except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
-        finally:
-            client_sock.close()
-
+        self.active = False
+        self._server_socket.close()
+        for process in self.processes:
+            if process.is_alive():
+                process.terminate()
+        for process in self.processes:
+            process.join(timeout=1)
     def __accept_new_connection(self):
         """
         Accept new connections
@@ -53,6 +60,16 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
+        try:
+            c, addr = self._server_socket.accept()            
+        except OSError as e:
+            logging.error(f'action: accept_connections | result: fail | error: {e}')
+            return
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
+
+
+    def __signal_handler(self, signum, frame):
+        self.__shutdown()
+
+    

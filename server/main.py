@@ -19,7 +19,7 @@ def initialize_config():
 
     config = ConfigParser(os.environ)
     # If config.ini does not exists original config object is not modified
-    config.read("config.ini")
+    config.read("./config/server_config.ini")
 
     config_params = {}
     try:
@@ -47,8 +47,10 @@ def main():
     logging.debug(f"action: config | result: success | port: {port} | "
                   f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
 
+    clients_total = os.getenv('CLIENTS_TOTAL', 5)
+
     # Initialize server and start server loop
-    server = Server(port, listen_backlog)
+    server = Server(port, listen_backlog, clients_total)
     server.run()
 
 def initialize_log(logging_level):

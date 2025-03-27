@@ -42,7 +42,7 @@ func InitConfig() (*viper.Viper, error) {
 	// does not exists then ReadInConfig will fail but configuration
 	// can be loaded from the environment variables so we shouldn't
 	// return an error in that case
-	v.SetConfigFile("./config.yaml")
+	v.SetConfigFile("./config/client_config.yaml")
 	if err := v.ReadInConfig(); err != nil {
 		fmt.Printf("Configuration could not be read from config file. Using env variables instead")
 	}
@@ -101,15 +101,17 @@ func main() {
 	}
 
 	// Print program config with debugging purposes
-	PrintConfig(v)
+	// PrintConfig(v)
 
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
+		BatchMaxAmount: v.GetInt("batch.maxAmount"),
+
 	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop()
+	client.Run()
 }

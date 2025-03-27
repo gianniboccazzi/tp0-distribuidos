@@ -7,6 +7,7 @@ from common.utils import Bet, has_won, load_bets, store_bets
 
 ERROR_RES = "ERR"
 ACK_RES = "ACK"
+NONE_RES = "NONE"
 
 
 def parse_batch(message: str, client_id) -> list[Bet]:
@@ -84,7 +85,7 @@ class BetProtocol:
             if has_won(bet) and bet.agency == int(client_id):
                 winners.append(bet.document)
         if len(winners) == 0:
-            payload = "NONE"
+            payload = NONE_RES
         else:
             payload = "|".join(winners)
         self.__send_response(client_sock,payload)

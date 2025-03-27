@@ -194,8 +194,7 @@ func PrepareBetToBatchMessage(bet domain.Bet) string {
 	/// Protocol: 
 	///MESSAGE_LENGTH|AGENCY|NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
 
-	betMessage := fmt.Sprintf("%d|%s|%s|%d|%s|%d||",
-		bet.Agency,
+	betMessage := fmt.Sprintf("%s|%s|%d|%s|%d||",
 		bet.Name,
 		bet.Surname,
 		bet.ID,

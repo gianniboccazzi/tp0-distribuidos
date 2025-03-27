@@ -27,6 +27,7 @@ type ClientConfig struct {
 type Client struct {
 	config ClientConfig
 	conn   net.Conn
+	endProgram chan bool
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -34,6 +35,7 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config: config,
+		endProgram: make(chan bool),
 	}
 	client.handleSignal()
 	return client
@@ -62,8 +64,12 @@ func (c *Client) handleSignal() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM)
 	go func() {
-		<-signalChan
-		c.conn.Close()
+		select {
+			case <-signalChan:
+				c.conn.Close()
+			case <-c.endProgram:
+				return
+		}
 	}()
 }
 
@@ -78,13 +84,24 @@ func (c *Client) SendBets() {
 	betProtocol.SendBatches()
 }
 
-func (c *Client) RequestWinners() {
+func (c *Client) RequestWinners() bool {
 	err := c.createClientSocket()
 	if err != nil {
 		log.Criticalf("action: conexion_socket | result: fail | client_id: %d | error: %v", c.config.ID, err)
-		return
+		return false
 	}
 	defer c.conn.Close()
 	betProtocol := communication.NewBetProtocol(c.conn, c.config.BatchMaxAmount, c.config.ID, MAX_PACKET_SIZE)
-	betProtocol.RequestWinners()
+	return betProtocol.RequestWinners()
+}
+
+
+func (c *Client) Run() {
+	c.SendBets()
+	time.Sleep(2 * time.Second)
+	var lotteryFinished bool
+	for !lotteryFinished {
+		lotteryFinished = c.RequestWinners()
+		time.Sleep(2 * time.Second)
+	}
 }

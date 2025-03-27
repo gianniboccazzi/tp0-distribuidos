@@ -52,11 +52,10 @@ donde:
 Cada apuesta dentro del batch sigue el formato:
 
 ```
-AGENCY|NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
+NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
 ```
 
 donde:
-- `AGENCY`: Código de la agencia de apuestas.
 - `NAME`: Nombre del apostador.
 - `SURNAME`: Apellido del apostador.
 - `ID`: Identificación del apostador.

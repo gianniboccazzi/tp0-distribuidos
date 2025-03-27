@@ -98,10 +98,10 @@ func (c *Client) RequestWinners() bool {
 
 func (c *Client) Run() {
 	c.SendBets()
-	time.Sleep(2 * time.Second)
 	var lotteryFinished bool
+	time.Sleep(1 * time.Second)
 	for !lotteryFinished {
 		lotteryFinished = c.RequestWinners()
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }

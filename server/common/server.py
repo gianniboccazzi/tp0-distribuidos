@@ -22,6 +22,7 @@ class Server:
             if client_sock:
                 self.protocol.handle_client_connection(client_sock)
                 client_sock.close()
+        self._server_socket.close()
 
     def __accept_new_connection(self):
         """
@@ -47,7 +48,7 @@ class Server:
 
         Function that is called when a SIGTERM signal is received
         """
-        self._server_socket.close()
+        self.active = False
 
     
 

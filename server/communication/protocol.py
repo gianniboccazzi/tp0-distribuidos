@@ -21,7 +21,7 @@ def parse_batch(message: str) -> list[Bet]:
     return bets
 
 class BetProtocol:
-    def receive_batches(self, client_sock: socket.socket, client_id):
+    def receive_batches(self, client_sock: socket.socket, client_id, file_lock):
         eof = False
         bets = []
         while not eof:
@@ -36,15 +36,17 @@ class BetProtocol:
                     eof = True
                     break
                 bets = parse_batch(decoded_message)
-                store_bets(bets)
+                with file_lock:
+                    store_bets(bets)
                 self.__send_response(client_sock, ACK_RES)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
             except ValueError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 self.__send_response(client_sock, ERROR_RES)
+                return
             except (socket.timeout, ConnectionError, OSError) as e:
                 logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | error: {e}")
-                break
+                return
         return client_id
 
     def receive_until_delimiter(self, client_sock, buffer):
@@ -56,7 +58,7 @@ class BetProtocol:
         return buffer
         
 
-    def handle_client_connection(self, client_sock: socket.socket, lottery_ready):
+    def handle_client_connection(self, client_sock: socket.socket, lottery_ready, file_lock):
         client_sock.settimeout(20)
         buffer = b""
         buffer = self.receive_until_delimiter(client_sock, buffer)
@@ -66,18 +68,20 @@ class BetProtocol:
         payload = remaining_data.decode()
         client_id, action = payload.split("|")
         if action == "BETS":
-            return self.receive_batches(client_sock, client_id)
+            return self.receive_batches(client_sock, client_id, file_lock)
         if action == "WINNERS":
-            return self.send_winners(client_sock,client_id, lottery_ready)
+            return self.send_winners(client_sock,client_id, lottery_ready, file_lock)
         return 
 
     
-    def send_winners(self, client_sock: socket.socket, client_id, lottery_ready: bool):
-        if not lottery_ready:
+    def send_winners(self, client_sock: socket.socket, client_id, lottery_ready, file_lock):
+        if not lottery_ready.value:
             self.__send_response(client_sock, ERROR_RES)
             return
         winners = []
-        for bet in load_bets():
+        with file_lock:
+            bets = load_bets()
+        for bet in bets:
             if has_won(bet) and bet.agency == int(client_id):
                 winners.append(bet.document)
         if len(winners) == 0:

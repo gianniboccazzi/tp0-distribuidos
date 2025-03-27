@@ -5,6 +5,8 @@ import logging
 from communication.protocol import BetProtocol
 from multiprocessing import Process, Manager, Queue
 
+from common.client_handler import ClientHandler
+
 
 
 class Server:
@@ -14,12 +16,12 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.active = True
-        self.lottery_completed = False
-        self.protocol = BetProtocol()
         self.clients_total = clients_total
         self.manager = Manager()
-        self.clients_ready = set()
-        self.queue = Queue()
+        self.lottery_completed = self.manager.Value('b', False)
+        self.clients_ready = self.manager.dict()
+        self.file_lock = self.manager.Lock()
+        self.lottery_lock = self.manager.Lock()
         self.processes = []
 
     def run(self):
@@ -27,20 +29,27 @@ class Server:
         while self.active:
             client_sock = self.__accept_new_connection()
             if client_sock:
-                process = Process(target=self.protocol.handle_client_connection, args=(client_sock, self.lottery_completed))
+                client_handler = ClientHandler(client_sock, self.lottery_completed, self.clients_ready,
+                                                self.clients_total, self.file_lock, self.lottery_lock)
+                process = Process(target=client_handler.run)
                 process.start()
+                self.processes.append(process)
                 client_sock.close()
-                self.check_lottery_status(client_ready)
+        self.__shutdown()
 
-    def check_lottery_status(self, client_ready):
-        if client_ready:
-            self.clients_ready.add(client_ready)
-        if not self.lottery_completed and len(self.clients_ready) == int(self.clients_total):
-            self.lottery_completed = True
-            logging.info("action: sorteo | result: success")
+    def __shutdown(self):
+        """
+        Shutdown server
 
-
-
+        Function that closes the server socket and sets the active flag to False
+        """
+        self.active = False
+        self._server_socket.close()
+        for process in self.processes:
+            if process.is_alive():
+                process.terminate()
+        for process in self.processes:
+            process.join(timeout=1)
     def __accept_new_connection(self):
         """
         Accept new connections
@@ -59,14 +68,8 @@ class Server:
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
 
+
     def __signal_handler(self, signum, frame):
-        """
-        Signal handler for SIGTERM signal
-
-        Function that is called when a SIGTERM signal is received
-        """
-        self._server_socket.close()
-
-    
+        self.__shutdown()
 
     

@@ -1,18 +1,18 @@
 package communication
 
 import (
+	"bytes"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
+
 	"github.com/op/go-logging"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
 var log = logging.MustGetLogger("log")
-const (
-	EOF_DELIMITER = "|||"
-)
 
 type BetProtocol struct {
 	Conn net.Conn
@@ -31,6 +31,11 @@ func NewBetProtocol(conn net.Conn, maxAmountOfBets int, clientID string, maxPack
 	}
 }
 func (b *BetProtocol) SendBatches() {
+	err := b.SendStartBatch()
+	if err != nil {
+		log.Criticalf("action: send_start_batch | result: fail | client_id: %v | error: %v", b.ClientID, err)
+		return
+	}
 	csvReader, file, err := domain.ReadBetsFile(b.ClientID)
 	if err != nil {
 		log.Criticalf("action: open_file | result: fail | client_id: %v | error: %v", b.ClientID, err)
@@ -82,33 +87,56 @@ func (b *BetProtocol) SendBatches() {
 			betsQuantity++
 		}
 
-		if isEOF {
-			packet = append(packet, []byte(EOF_DELIMITER)...)
+
+
+		if isEOF && len(packet) == 0 {
+			break
 		}
 
 		batchMessage := PrepareBatchMessage(packet)
+		
 
-		if err := b.SendBatch(batchMessage); err != nil {
+		if err := b.SendMessage(batchMessage); err != nil {
 			log.Criticalf("action: send_batch | result: fail | client_id: %v | error: %v", b.ClientID, err)
 			return
 		}
 
 		if err := b.ReceiveAck(); err != nil {
+			if strings.Contains(err.Error(), "ERR") {
+				log.Infof("action: apuesta_enviada | result: fail | client_id: %s | error: apuesta invalida", b.ClientID)
+				continue
+			}
 			log.Criticalf("action: receive_ack | result: fail | client_id: %v | error: %v", b.ClientID, err)
 			return
 		}
-
 		log.Infof("action: apuesta_enviada | result: success | client_id: %s | cantidad: %d", b.ClientID, betsQuantity)
+	}
+	err = b.SendEOF()
+	if err != nil {
+		log.Criticalf("action: send_eof | result: fail | client_id: %v | error: %v", b.ClientID, err)
+		return
 	}
 }
 
+func (b *BetProtocol) SendStartBatch() error {
+	payload := fmt.Sprintf("%s|BETS", b.ClientID)
+	header := fmt.Sprintf("%d|", len(payload))
+	message := append([]byte(header), []byte(payload)...)
+	return b.SendMessage(message)
+}
+
+func (b *BetProtocol) SendEOF() error {
+	payload := "EOF"
+	header := fmt.Sprintf("%d|", len(payload))
+	message := append([]byte(header), []byte(payload)...)
+	return b.SendMessage(message)
+}
 
 
-
-func(b *BetProtocol) SendBatch(batchMessage []byte) error {
+func(b *BetProtocol) SendMessage(message []byte) error {
 	bytesSent := 0
-	for bytesSent < len(batchMessage) {
-		n, err := b.Conn.Write(batchMessage[bytesSent:])
+	for bytesSent < len(message) {
+		n, err := b.Conn.Write(message[bytesSent:])
 		if err != nil {
 			return err
 		}
@@ -119,21 +147,47 @@ func(b *BetProtocol) SendBatch(batchMessage []byte) error {
 
 
 func(b *BetProtocol) ReceiveAck() error {
-	// wait for response
-	resLength := 3
-	bytesReceived := 0
-	bytesAck := make([]byte, resLength)
-	for bytesReceived < resLength {
-		n, err := b.Conn.Read(bytesAck[bytesReceived:])
-		if err != nil {
-			return err
-		}
-		bytesReceived += n
+	buffer, err := b.receiveUntilDelimiter()
+	if err != nil {
+		return err
 	}
-	if string(bytesAck) != "ACK" {
-		return fmt.Errorf("ACK not received")
+	delimiterIndex := bytes.Index(buffer, []byte("|"))
+	if delimiterIndex == -1 {
+		return fmt.Errorf("error finding delimiter")
+	}
+	bytesToRead := buffer[:delimiterIndex]
+
+	remainingData := buffer[delimiterIndex+1:]
+
+
+	messageLength, err := strconv.Atoi(string(bytesToRead))
+	if err != nil {
+		return fmt.Errorf("error parsing message length: %w", err)
+	}
+	bytesReceived := len(remainingData)
+	bufferToRead := make([]byte, messageLength)
+	remainingDataToRead, err := b.ReceiveMessage(messageLength - bytesReceived, bufferToRead, bytesReceived)
+	if err != nil {
+		return err
+	}
+	remainingData = append(remainingData, remainingDataToRead...)
+	remainingDataString := string(remainingData)
+	remainingDataString = strings.TrimRight(remainingDataString, "\x00")
+	if strings.TrimSpace(remainingDataString) != "ACK" {
+		return fmt.Errorf("error receiving ack: %s", remainingDataString)
 	}
 	return nil
+}
+
+func (b *BetProtocol) ReceiveMessage(resLength int, buffer []byte, offset int) ([]byte, error) {
+	for offset < resLength {
+		n, err := b.Conn.Read(buffer[offset:])
+		if err != nil {
+			return nil, err
+		}
+		offset += n
+	}
+	return buffer, nil
 }
 
 func PrepareBetToBatchMessage(bet domain.Bet) string {
@@ -160,4 +214,31 @@ func PrepareBatchMessage(message []byte) []byte {
 	header := fmt.Sprintf("%d|", len(message))
 
 	return append([]byte(header), message...)
+}
+
+func (b *BetProtocol) receiveUntilDelimiter() ([]byte, error) {
+	var buffer bytes.Buffer
+	chunkSize := 2
+
+	for {
+		chunk := make([]byte, chunkSize)
+		n, err := b.Conn.Read(chunk)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return nil, fmt.Errorf("timeout waiting for delimiter")
+			}
+			return nil, fmt.Errorf("error reading from client: %w", err)
+		}
+		if n == 0 {
+			return nil, fmt.Errorf("server disconnected before sending message")
+		}
+
+		buffer.Write(chunk[:n]) 
+
+		if strings.Contains(buffer.String(), "|") {
+			break
+		}
+	}
+
+	return buffer.Bytes(), nil
 }

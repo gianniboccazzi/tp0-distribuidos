@@ -10,7 +10,7 @@ class ClientHandler:
         self.clients_ready = clients_ready
         self.clients_total = clients_total
         self.client_sock = client_sock
-        self.client_sock.settimeout(20)
+        self.client_sock.settimeout(5)
         self.file_lock = file_lock
         self.lottery_lock = lottery_lock
         self.protocol = BetProtocol()

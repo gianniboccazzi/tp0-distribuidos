@@ -55,7 +55,7 @@ func (c *Client) createClientSocket() error {
 		return err
 	}
 	c.conn = conn
-	c.conn.SetDeadline(time.Now().Add(20 * time.Second))
+	c.conn.SetDeadline(time.Now().Add(5 * time.Second))
 	return nil
 }
 

@@ -59,7 +59,7 @@ class BetProtocol:
         
 
     def handle_client_connection(self, client_sock: socket.socket, lottery_ready, file_lock):
-        client_sock.settimeout(20)
+        client_sock.settimeout(5)
         buffer = b""
         buffer = self.receive_until_delimiter(client_sock, buffer)
         message_length_bytes, remaining_data = buffer.split(b"|", 1)

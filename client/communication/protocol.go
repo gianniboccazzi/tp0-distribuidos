@@ -13,9 +13,6 @@ import (
 )
 
 var log = logging.MustGetLogger("log")
-const (
-	EOF_DELIMITER = "|||"
-)
 
 type BetProtocol struct {
 	Conn net.Conn
@@ -195,10 +192,9 @@ func (b *BetProtocol) ReceiveMessage(resLength int, buffer []byte, offset int) (
 
 func PrepareBetToBatchMessage(bet domain.Bet) string {
 	/// Protocol: 
-	///MESSAGE_LENGTH|AGENCY|NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
+	///MESSAGE_LENGTH|NAME|SURNAME|ID|BIRTHDATE|BET_NUMBER
 
-	betMessage := fmt.Sprintf("%d|%s|%s|%d|%s|%d||",
-		bet.Agency,
+	betMessage := fmt.Sprintf("%s|%s|%d|%s|%d||",
 		bet.Name,
 		bet.Surname,
 		bet.ID,

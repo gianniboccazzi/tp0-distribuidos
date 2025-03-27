@@ -9,15 +9,15 @@ ERROR_RES = "ERR"
 ACK_RES = "ACK"
 
 
-def parse_batch(message: str) -> list[Bet]:
+def parse_batch(message: str, client_id) -> list[Bet]:
     parts = message.split("||")
     bets = []
     for part in parts:
         bet_parts = part.split("|")
-        if len(bet_parts) != 6:
+        if len(bet_parts) != 5:
             print(bet_parts)
             raise ValueError("Invalid message format")
-        bets.append(Bet(bet_parts[0], bet_parts[1], bet_parts[2], bet_parts[3], bet_parts[4], bet_parts[5]))
+        bets.append(Bet(client_id, bet_parts[0], bet_parts[1], bet_parts[2], bet_parts[3], bet_parts[4]))
     return bets
 
 class BetProtocol:
@@ -35,7 +35,7 @@ class BetProtocol:
                 if decoded_message == "EOF":
                     eof = True
                     break
-                bets = parse_batch(decoded_message)
+                bets = parse_batch(decoded_message, client_id)
                 store_bets(bets)
                 self.__send_response(client_sock, ACK_RES)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")

@@ -41,10 +41,13 @@ class Server:
             message_length = int(message_length_str.decode())
             remaining_data += self.recv_all(client_sock, message_length - len(remaining_data))
             bet = parse_message(remaining_data)
-            self.__send_ack(client_sock)
+            self.__send_flag(client_sock, "ACK\n")
             logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
-            store_bets([bet])    
-        except (socket.timeout, ConnectionError, ValueError, OSError) as e:
+            store_bets([bet])  
+        except ValueError as e:
+            logging.error(f"action: apuesta_almacenada | result: fail | error: {e}")
+            self.__send_flag(client_sock, "ERR\n") 
+        except (socket.timeout, ConnectionError, OSError) as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
 
 
@@ -84,12 +87,12 @@ class Server:
             data += chunk
         return data
 
-    def __send_ack(self, client_sock: socket.socket):
+    def __send_flag(self, client_sock: socket.socket, flag: str):
         """
         Send ack to client
 
         Function that sends an ack message to the client
         """
-        res = client_sock.sendall(b"ACK\n")
+        res = client_sock.sendall(flag.encode())
         if res == 0:
             raise ConnectionError("Client disconnected before sending ack message")

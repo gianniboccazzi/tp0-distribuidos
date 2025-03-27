@@ -16,7 +16,7 @@ def parse_batch(message: str, client_id) -> list[Bet]:
         if len(bet_parts) != 5:
             print(bet_parts)
             raise ValueError("Invalid message format")
-        bets.append(Bet(client_id, bet_parts[1], bet_parts[2], bet_parts[3], bet_parts[4], bet_parts[5]))
+        bets.append(Bet(client_id, bet_parts[0], bet_parts[1], bet_parts[2], bet_parts[3], bet_parts[4]))
     return bets
 
 class BetProtocol:

@@ -215,17 +215,18 @@ func PrepareBatchMessage(message []byte) []byte {
 	return append([]byte(header), message...)
 }
 
-func (b *BetProtocol) RequestWinners() {
+func (b *BetProtocol) RequestWinners() bool {
 	err := b.SendRequestWinners()
 	if err != nil {
 		log.Criticalf("action: send_request_winners | result: fail | client_id: %v | error: %v", b.ClientID, err)
-		return
+		return false
 	}
 	err = b.ReceiveWinners()
 	if err != nil {
 		log.Criticalf("action: receive_winners | result: fail | client_id: %v | error: %v", b.ClientID, err)
-		return
+		return false
 	}
+	return true
 }
 
 func (b *BetProtocol) SendRequestWinners() error {

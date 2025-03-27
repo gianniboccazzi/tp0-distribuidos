@@ -20,7 +20,7 @@ class Server:
         while self.active:
             client_sock = self.__accept_new_connection()
             if client_sock:
-                self.protocol.handle_client_connection_batches(client_sock)
+                self.protocol.handle_client_connection(client_sock)
                 client_sock.close()
 
     def __accept_new_connection(self):
